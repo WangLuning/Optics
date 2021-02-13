@@ -37,10 +37,10 @@ def design_bpf(fs, lowcut, highcut):
 		w, h = freqz(b, a, worN=2000)
 
 		x_axis = (fs * 0.5 / np.pi) * w
-		x_axis = x_axis[1550:1650]
-		y_axis = abs(h)[1550:1650]
+		y_axis = abs(h)
+		plt.xlim(1.9e2, 2.1e2)
 		plt.plot(x_axis, y_axis, label="order = %d" % order)
-	plt.xlabel('Frequency (Hz)')
+	plt.xlabel('Frequency (THz)')
 	plt.ylabel('Gain')
 	plt.grid(True)
 	plt.legend(loc='best')
@@ -48,31 +48,45 @@ def design_bpf(fs, lowcut, highcut):
 
 
 def run_filter():
-	# Sample rate and desired cutoff frequencies (in Hz).
+	# Sample rate and desired cutoff frequencies (in THz).
 	# our filter is about 200THz
-	fs = 5e14
-	lowcut = c / 1500 * 1e12
-	highcut = c / 1494 * 1e12
+	fs = ntau
+	lowcut = c / 1500
+	highcut = c / 1494
 
 	design_bpf(fs, lowcut, highcut)
 
 	# apply the filter on the OFC
-	T = 1e-11 *4096 / 5000
-	nsamples = int(T * fs) + 1
-	t = np.linspace(0, T, nsamples, endpoint=False)
+	t = np.linspace(0, dtau, int(Tmax), endpoint=False)
 	uu_filtered = butter_bandpass_filter(uu, lowcut, highcut, fs, order=3)
+
+	# the original signal is
+	plt.plot(tau,uu)
+	plt.title('Time Domain')
+	plt.xlabel('Time tau (ps)')
+	plt.ylabel('Power(W)')
+
 	plt.ylim([-0.02, 0.02])
-	plt.plot(t, uu_filtered, label='Filtered signal (%g Hz)' % f0)
-	plt.xlabel('time (seconds)')
+	plt.plot(tau, uu_filtered, label='Filtered signal (%g Hz)' % f0)
 	plt.grid(True)
 	plt.axis('tight')
 	plt.legend(loc='upper left')
 	plt.title('OFC signal through BPF in time domain')
 	plt.show()
 
+	spect_filtered=np.fft.fftshift(np.fft.ifft(np.fft.fftshift(uu_filtered)))
+	lIW_filtered = np.array([10 * math.log10(abs(s)**2) if s > 0.0 else float('-inf') for s in spect_filtered])
+	plt.stem(lambdas,lIW_filtered, bottom = -80)
+	plt.title('Frequency Domain')
+	plt.xlabel('Wavelength lambda (nm)')
+	plt.ylabel('Spectrum(dB)')
+	plt.xlim([1200, 2400])
+	plt.ylim([-80, 20])
+	plt.show()
+
 
 if __name__ == "__main__":
-	run()
+	run_filter()
 
 	# in run() we get the filtered signal from OFC
 	# below is simple selection of spectral lines for simulation purpose
